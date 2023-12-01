@@ -4,7 +4,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiPredicate;
+import java.util.function.ToIntBiFunction;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public class D01 extends AoC {
     Map<String, Integer> replacements = Map.of("one", 1,
@@ -22,35 +24,39 @@ public class D01 extends AoC {
     Map<Character, List<String>> spelledDigitsByLastLetter = replacements.keySet().stream()
             .collect(Collectors.groupingBy(digit -> digit.charAt(digit.length() - 1)));
 
-    int getFirstDigitOrSpelledDigit(String line, boolean searchSpelled) {
-        for (int i = 0; i < line.length(); i++) {
-            char current = line.charAt(i);
-            if (Character.isDigit(current)) {
-                return current - '0';
-            } else if (searchSpelled) {
-                Optional<String> spelled = getSpelledDigit(line.substring(i), String::startsWith, spelledDigitsByFirstLetter.get(current));
-                if (spelled.isPresent()) {
-                    return replacements.get(spelled.get());
-                }
-            }
-        }
-        return 0;
+    int getFirstDigit(String line, IntStream intStream, ToIntBiFunction<String, Integer> mapper) {
+        return intStream.map(i -> mapper.applyAsInt(line, i)).filter(n -> n > 0).findFirst().orElse(0);
     }
 
-    int getLastDigitOrSpelledDigit(String line, boolean searchSpelled) {
-        for (int i = line.length() - 1; i >= 0; i--) {
-            char current = line.charAt(i);
-            if (Character.isDigit(current)) {
-                return current - '0';
-            } else if (searchSpelled) {
-                Optional<String> spelled = getSpelledDigit(line.substring(0, i + 1), String::endsWith, spelledDigitsByLastLetter.get(current));
-                if (spelled.isPresent()) {
-                    return replacements.get(spelled.get());
-                }
-            }
+    ToIntBiFunction<String, Integer> digitFinder = (line, index) -> {
+        char current = line.charAt(index);
+        if (Character.isDigit(current)) {
+            return current - '0';
+        } else {
+            return 0;
         }
-        return 0;
-    }
+    };
+
+    ToIntBiFunction<String, Integer> firstSpelledDigitFinder = (line, index) -> {
+        int digit = digitFinder.applyAsInt(line, index);
+        if (digit == 0) {
+            digit = getSpelledDigit(line.substring(index), String::startsWith, spelledDigitsByFirstLetter.get(line.charAt(index)))
+                    .map(replacements::get)
+                    .orElse(0);
+        }
+        return digit;
+    };
+
+    ToIntBiFunction<String, Integer> lastSpelledDigitFinder = (line, index) -> {
+        int digit = digitFinder.applyAsInt(line, index);
+        if (digit == 0) {
+            digit = getSpelledDigit(line.substring(0, index + 1), String::endsWith, spelledDigitsByLastLetter.get(line.charAt(index)))
+                    .map(replacements::get)
+                    .orElse(0);
+        }
+        return digit;
+    };
+
 
     Optional<String> getSpelledDigit(String line, BiPredicate<String, String> predicate, List<String> candidates) {
         if (candidates == null) {
@@ -61,17 +67,24 @@ public class D01 extends AoC {
                 .findFirst();
     }
 
-    int getNumber(String line, boolean searchSpelled) {
-        return getFirstDigitOrSpelledDigit(line, searchSpelled) * 10 + getLastDigitOrSpelledDigit(line, searchSpelled);
+    int getNumber(String line, ToIntBiFunction<String, Integer> first, ToIntBiFunction<String, Integer> last) {
+        return getFirstDigit(line, IntStream.range(0, line.length()), first) * 10 + getFirstDigit(line, reverseRange(0, line.length()), last);
+    }
+    int getNumberPartOne(String line) {
+        return getNumber(line, digitFinder, digitFinder);
+    }
+
+    int getNumberPartTwo(String line) {
+        return getNumber(line, firstSpelledDigitFinder, lastSpelledDigitFinder);
     }
 
     @Override
     public void run() {
-        System.out.println("Test Calibration Value 1 : " + stream(getTestInputPath()).mapToInt(line -> getNumber(line, false)).sum());
-        System.out.println("Calibration Value 1 : " + stream(getInputPath()).mapToInt(line -> getNumber(line, false)).sum());
+        System.out.println("Test Calibration Value 1 : " + stream(getTestInputPath()).mapToInt(this::getNumberPartOne).sum());
+        System.out.println("Calibration Value 1 : " + stream(getInputPath()).mapToInt(this::getNumberPartOne).sum());
 
-        System.out.println("Test Calibration Value 2 : " + stream(getPath("input-test2")).mapToInt(line -> getNumber(line, true)).sum());
-        System.out.println("Calibration Value 2 : " + stream(getInputPath()).mapToInt(line -> getNumber(line, true)).sum());
+        System.out.println("Test Calibration Value 2 : " + stream(getPath("input-test2")).mapToInt(this::getNumberPartTwo).sum());
+        System.out.println("Calibration Value 2 : " + stream(getInputPath()).mapToInt(this::getNumberPartTwo).sum());
     }
 
 

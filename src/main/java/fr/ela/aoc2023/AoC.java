@@ -113,7 +113,10 @@ public abstract class AoC {
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
 
+    public static IntStream reverseRange(int start, int end) {
+        return IntStream.range(start, end).map(i -> end - i - 1);
     }
 
 }
