@@ -2,7 +2,9 @@ package fr.ela.aoc2023;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -19,22 +21,44 @@ public class D04 extends AoC {
         }
 
         private static List<Integer> parseNumbers(String numbers) {
-            return Arrays.stream(numbers.split("\s")).filter(s -> ! s.isEmpty()).map(Integer::parseInt).toList();
+            return Arrays.stream(numbers.split("\s")).filter(s -> !s.isEmpty()).map(Integer::parseInt).toList();
         }
 
         public int scorePartOne() {
-            var copy = new ArrayList<>(actual);
-            copy.retainAll(winning);
-            return copy.isEmpty() ? 0 : (int) Math.pow(2, copy.size() - 1);
+            var matches = countMatching();
+            return matches == 0 ? 0 : (int) Math.pow(2, matches - 1);
         }
 
+        public int countMatching() {
+            var copy = new ArrayList<>(actual);
+            copy.retainAll(winning);
+            return copy.size();
+        }
     }
 
+    public Map<Card, Integer> countCopies(List<Card> cards) {
+        Map<Card, Integer> map = new HashMap<>();
+        cards.forEach(c -> map.put(c, 1));
+
+        for (int i = 0; i < cards.size(); i++) {
+            Card c = cards.get(i);
+            int cardCount = map.get(c);
+            for (int j = 1; j <= c.countMatching(); j++) {
+                map.computeIfPresent(cards.get(i+j), (card,p) -> p+cardCount);
+            }
+        }
+        return map;
+    }
 
     @Override
     public void run() {
-        System.out.println("Test points part 1 : "+stream(getTestInputPath()).map(Card::parse).mapToInt(Card::scorePartOne).sum());
-        System.out.println("Points part 1 : "+stream(getInputPath()).map(Card::parse).mapToInt(Card::scorePartOne).sum());
+        List<Card> testCards = list(getTestInputPath(), Card::parse);
+        System.out.println("Test points part 1 : " + testCards.stream().mapToInt(Card::scorePartOne).sum());
+        System.out.println("Test number of cards : : " + countCopies(testCards).values().stream().mapToInt(Integer::intValue).sum());
+
+        List<Card> cards = list(getInputPath(), Card::parse);
+        System.out.println("Points part 1 : " + cards.stream().mapToInt(Card::scorePartOne).sum());
+        System.out.println("Number of cards : : " + countCopies(cards).values().stream().mapToInt(Integer::intValue).sum());
     }
 
 
