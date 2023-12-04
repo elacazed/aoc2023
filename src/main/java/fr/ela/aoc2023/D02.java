@@ -2,6 +2,7 @@ package fr.ela.aoc2023;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -11,12 +12,16 @@ public class D02 extends AoC {
     Pattern GAME_PATTERN = Pattern.compile("Game ([0-9]+): (.*)");
     Pattern DRAW_PATTERN = Pattern.compile("(([0-9]+) (red|green|blue),?)");
 
-    public record Draw(int blue, int red, int green){
+    public record Draw(int blue, int red, int green) {
 
         public boolean isValid(int blue, int red, int green) {
             return this.blue <= blue && this.red <= red && this.green <= green;
         }
-    };
+
+        public Draw max(Draw other) {
+            return new Draw(Math.max(blue, other.blue), Math.max(red, other.red), Math.max(green, other.green));
+        }
+    }
 
     public class Game {
         final int id;
@@ -43,14 +48,21 @@ public class D02 extends AoC {
         public boolean isValid(int blue, int red, int green) {
             return draws.stream().allMatch(draw -> draw.isValid(blue, red, green));
         }
-    }
 
+        public int power() {
+            Draw min = draws.stream().reduce(new Draw(0, 0, 0), Draw::max);
+            return min.green * min.red * min.blue;
+        }
+    }
 
 
     @Override
     public void run() {
         System.out.println("Possible Test Games : " + stream(getTestInputPath()).map(Game::new).filter(g -> g.isValid(14, 12, 13)).mapToInt(g -> g.id).sum());
         System.out.println("Possible Games : " + stream(getInputPath()).map(Game::new).filter(g -> g.isValid(14, 12, 13)).mapToInt(g -> g.id).sum());
+        System.out.println("Sum of Test Games powers : " + stream(getTestInputPath()).map(Game::new).mapToInt(Game::power).sum());
+        System.out.println("Sum of Test Games powers : " + stream(getInputPath()).map(Game::new).mapToInt(Game::power).sum());
+
     }
 
 
