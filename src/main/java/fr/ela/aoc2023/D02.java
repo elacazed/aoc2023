@@ -2,7 +2,6 @@ package fr.ela.aoc2023;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -61,7 +60,7 @@ public class D02 extends AoC {
         System.out.println("Possible Test Games : " + stream(getTestInputPath()).map(Game::new).filter(g -> g.isValid(14, 12, 13)).mapToInt(g -> g.id).sum());
         System.out.println("Possible Games : " + stream(getInputPath()).map(Game::new).filter(g -> g.isValid(14, 12, 13)).mapToInt(g -> g.id).sum());
         System.out.println("Sum of Test Games powers : " + stream(getTestInputPath()).map(Game::new).mapToInt(Game::power).sum());
-        System.out.println("Sum of Test Games powers : " + stream(getInputPath()).map(Game::new).mapToInt(Game::power).sum());
+        System.out.println("Sum of Games powers : " + stream(getInputPath()).map(Game::new).mapToInt(Game::power).sum());
 
     }
 
