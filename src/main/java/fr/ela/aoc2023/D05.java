@@ -4,20 +4,33 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.function.LongUnaryOperator;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class D05 extends AoC {
 
     record Range(long start, long end) implements Comparable<Range> {
 
-        public Range(long start, long end) {
-            this.start = start;
-            this.end = end;
+        static Optional<Range> maybe(long start, long end) {
+            if (end >= start) {
+                return Optional.of(new Range(start, end));
+            } else {
+                return Optional.empty();
+            }
+        }
+
+        public long size() {
+            return end - start + 1;
+        }
+
+        public String toString() {
+            return "[" + start + ".." + end + "]";
         }
 
         public boolean contains(long value) {
@@ -29,12 +42,22 @@ public class D05 extends AoC {
         }
 
         public boolean overlap(Range other) {
-            return contains(other.start) || contains(other.end);
+            return contains(other.start) || contains(other.end) || other.contains(start) || other.contains(end);
         }
 
         @Override
         public int compareTo(Range o) {
             return Comparator.comparingLong(Range::start).thenComparing(Range::end).compare(this, o);
+        }
+
+        public Range intersectionWith(Range other) {
+            if (!this.overlap(other)) {
+                return null;
+            } else if (this.equals(other)) {
+                return this;
+            } else {
+                return new Range(Math.max(this.start, other.start), Math.min(this.end, other.end));
+            }
         }
 
         Range move(long offset) {
@@ -46,7 +69,7 @@ public class D05 extends AoC {
         if (ranges.size() == 1 || ranges.isEmpty()) {
             return ranges;
         }
-        List<Range> newRanges = new ArrayList<>();
+        Set<Range> newRanges = new HashSet<>();
         Iterator<Range> it = ranges.stream().sorted(Comparator.comparingLong(Range::start)).iterator();
         Range current = it.next();
         long curStart = current.start;
@@ -62,11 +85,14 @@ public class D05 extends AoC {
             }
         }
         newRanges.add(new Range(curStart, currEnd));
-        return newRanges;
+        return newRanges.stream().sorted().toList();
     }
 
-
     record TTTEntry(Range range, long offset) {
+
+        public String toString() {
+            return range + " (" + offset + ")";
+        }
 
         static TTTEntry parse(String entry) {
             String[] numbers = entry.split("\s+");
@@ -85,33 +111,40 @@ public class D05 extends AoC {
             }
         }
 
-        List<Range> to(Range from) {
-            List<Range> ranges = new ArrayList<>();
-            if (range.contains(from)) {
-                ranges.add(new Range(from.start + offset, from.end + offset));
-            } else if (range.overlap(from) || from.overlap(range)) {
-                if (from.start < range.start) {
-                    Range before = new Range(from.start, range.start - 1);
-                    ranges.add(before);
-                }
-                Range overlap = new Range(Math.max(from.start, range.start), Math.min(from.end, range.end));
-                ranges.add(overlap.move(offset));
-                if (from.end > range.end) {
-                    var after = new Range(range.end + 1, from.end);
-                    ranges.add(after);
+        public void transform(RangeMap rangeMap) {
+            List<Range> remains = new ArrayList<>();
+            List<Range> transformations = new ArrayList<>();
+            for (Range from : rangeMap.remains) {
+                if (range.overlap(from)) {
+                    Range intersection = range.intersectionWith(from);
+                    Range.maybe(from.start, range.start - 1).ifPresent(remains::add);
+                    transformations.add(intersection.move(offset));
+                    Range.maybe(range.end + 1, from.end).ifPresent(remains::add);
+                } else {
+                    remains.add(from);
                 }
             }
-//            System.out.println(this+ " : \n\tin  : "+from+
-//                    "\n\tout : "+ranges.stream().sorted().map(Range::toString).collect(Collectors.joining(", ")));
-            return ranges;
+            rangeMap.remains.clear();
+            List<Range> reduced = reduce(remains);
+            //if (reduced.size() < remains.size()) {
+            //    System.out.println("Reduction of remains : \n\t in : " + remains.stream().sorted().map(Range::toString).collect(Collectors.joining(", ")));
+            //    System.out.println("\tout : " + reduced.stream().sorted().map(Range::toString).collect(Collectors.joining(", ")));
+            //}
+            rangeMap.remains.addAll(reduced);
+            rangeMap.transformed.addAll(transformations);
+        }
+    }
 
+    record RangeMap(List<Range> remains, List<Range> transformed) {
+        long size() {
+            return transformed.stream().mapToLong(Range::size).sum() + remains.stream().mapToLong(Range::size).sum();
         }
 
-        List<Range> to(List<Range> from) {
-            var out = from.stream().map(this::to).flatMap(List::stream).toList();
-            return out;
+        List<Range> result() {
+            var result = new ArrayList<>(transformed);
+            result.addAll(remains);
+            return result;
         }
-
     }
 
     record TTTMap(String name, List<TTTEntry> entriesList) implements LongUnaryOperator {
@@ -119,55 +152,48 @@ public class D05 extends AoC {
             return new TTTMap(name, stream.map(TTTEntry::parse).toList());
         }
 
-        long getThing(long thing) {
+        @Override
+        public long applyAsLong(long thing) {
             if (thing == -1) {
                 return -1;
             }
             return entriesList.stream().mapToLong(e -> e.to(thing)).filter(l -> l > -1).findFirst().orElse(thing);
         }
 
-        @Override
-        public long applyAsLong(long operand) {
-            return getThing(operand);
-        }
-
-        public List<Range> toRanges(List<Range> ranges) {
-            var out = entriesList.stream().flatMap(e -> e.to(ranges).stream()).toList();
-            out = out.isEmpty() ? ranges : out;
-            var result = reduce(out);
-            System.out.println(name+ " : out : "+out.stream().sorted().map(Range::toString).collect(Collectors.joining(", ")));
-            if (result.size() != out.size()) {
-                System.out.println(name + " : red : " + result.stream().sorted().map(Range::toString).collect(Collectors.joining(", ")));
-            }
+        public List<Range> transform(List<Range> ranges) {
+            RangeMap in = new RangeMap(new ArrayList<>(ranges), new ArrayList<>());
+            entriesList.forEach(e -> e.transform(in));
+            List<Range> out = in.result();
+            //System.out.println(name + "\n\tin : " + ranges.stream().sorted().map(Range::toString).collect(Collectors.joining(", ")));
+            //System.out.println("\tout : " + out.stream().sorted().map(Range::toString).collect(Collectors.joining(", ")));
             return out;
         }
 
         public Function<List<Range>, List<Range>> toRanges() {
-            return this::toRanges;
+            return this::transform;
         }
     }
 
     public class Almanac {
         List<Long> seeds;
-        TTTMap seedToSoil;
-        TTTMap soilToFertilizer;
-        TTTMap fertilizerToWater;
-        TTTMap waterToLight;
-        TTTMap lightToTemperature;
-        TTTMap temperatureToHumidity;
-        TTTMap humidityToLocation;
+        TTTMap seedToSoil, soilToFertilizer, fertilizerToWater, waterToLight, lightToTemperature, temperatureToHumidity, humidityToLocation;
 
         public Almanac(Path data) {
             List<List<String>> list = splitOnEmptyLines(data);
             seeds = Arrays.stream(list.get(0).get(0).substring("seeds: ".length()).split("\s+")).map(Long::parseLong).toList();
 
-            seedToSoil = TTTMap.parse(list.get(1).get(0), list.get(1).stream().skip(1));
-            soilToFertilizer = TTTMap.parse(list.get(2).get(0), list.get(2).stream().skip(1));
-            fertilizerToWater = TTTMap.parse(list.get(3).get(0), list.get(3).stream().skip(1));
-            waterToLight = TTTMap.parse(list.get(4).get(0), list.get(4).stream().skip(1));
-            lightToTemperature = TTTMap.parse(list.get(5).get(0), list.get(5).stream().skip(1));
-            temperatureToHumidity = TTTMap.parse(list.get(7).get(0), list.get(6).stream().skip(1));
-            humidityToLocation = TTTMap.parse(list.get(7).get(0), list.get(7).stream().skip(1));
+            seedToSoil = parseMap(list.get(1));
+            soilToFertilizer = parseMap(list.get(2));
+            fertilizerToWater = parseMap(list.get(3));
+            waterToLight = parseMap(list.get(4));
+            lightToTemperature = parseMap(list.get(5));
+            temperatureToHumidity = parseMap(list.get(6));
+            humidityToLocation = parseMap(list.get(7));
+        }
+
+        static TTTMap parseMap(List<String> lines) {
+            String name = lines.get(0).split(" ")[0];
+            return TTTMap.parse(name, lines.stream().skip(1));
         }
 
         long getLowestLocation() {
@@ -183,22 +209,22 @@ public class D05 extends AoC {
 
         long getLowestLocationForAllSeeds() {
             List<Range> ranges = new ArrayList<>();
-            for (int i = 0; i < seeds.size(); i += 2) {
-                long start = seeds.get(i);
-                long end = start + seeds.get(i + 1) - 1;
-                ranges.add(new Range(start, end));
-            }
-            Function<Range, List<Range>> func = r -> seedToSoil.toRanges()
+            Function<List<Range>, List<Range>> func = seedToSoil.toRanges()
                     .andThen(soilToFertilizer.toRanges())
                     .andThen(fertilizerToWater.toRanges())
                     .andThen(waterToLight.toRanges())
                     .andThen(lightToTemperature.toRanges())
                     .andThen(temperatureToHumidity.toRanges())
-                    .andThen(humidityToLocation.toRanges()).apply(List.of(r));
-
-            long min = ranges.stream().map(func).flatMap(List::stream).mapToLong(Range::start).min().orElse(-1);
-            return min;
+                    .andThen(humidityToLocation.toRanges());
+            for (int i = 0; i < seeds.size(); i += 2) {
+                long start = seeds.get(i);
+                long end = start + seeds.get(i + 1);
+                ranges.add(new Range(start, end - 1));
+            }
+            return func.apply(ranges).stream()
+                    .mapToLong(Range::start).min().orElse(-1);
         }
+
     }
 
 
@@ -208,9 +234,9 @@ public class D05 extends AoC {
         System.out.println("Test Lowest Location (35) : " + testAlmanac.getLowestLocation());
         System.out.println("Test Lowest Location 2 (46) : " + testAlmanac.getLowestLocationForAllSeeds());
 
-       Almanac almanac = new Almanac(getInputPath());
-       System.out.println("Lowest Location (218513636) : " + almanac.getLowestLocation());
-       System.out.println("Lowest Location 2 : " + almanac.getLowestLocationForAllSeeds());
+        Almanac almanac = new Almanac(getInputPath());
+        System.out.println("Lowest Location (218513636) : " + almanac.getLowestLocation());
+        System.out.println("Lowest Location 2 (81956384) : " + almanac.getLowestLocationForAllSeeds());
     }
 
 }
