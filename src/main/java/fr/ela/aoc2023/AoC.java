@@ -6,6 +6,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.function.Function;
 import java.util.function.IntConsumer;
@@ -44,6 +45,7 @@ public abstract class AoC {
     public Path getInputPath() {
         return getPath("input");
     }
+
     public String readFile(Path path) {
         try {
             return Files.readString(path);
@@ -100,14 +102,30 @@ public abstract class AoC {
             throw new RuntimeException(ioe);
         }
     }
+
     boolean inRange(int i, int low, int high) {
         return i >= low && i < high;
     }
 
     public static void main(String[] args) {
+        if (args.length == 0 || "last".equals(args[0])) {
+            try {
+                Path path = Path.of("src/main/java", AoC.class.getPackageName().split("\\."));
+                String name = Files.list(path).map(Path::getFileName).map(Path::toString).filter(p -> p.endsWith(".java")).max(Comparator.naturalOrder()).orElse("");
+                if (name.endsWith(".java"))  {
+                    name = name.substring(0, name.length() - ".java".length());
+                }
+                run(name);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        Arrays.stream(args).forEach(AoC::run);
+    }
+
+    private static void run(String className) {
         try {
-            String className = args[0];
-            Class<AoC> clazz = (Class<AoC>) Class.forName(AoC.class.getPackageName()+"."+className);
+            Class<AoC> clazz = (Class<AoC>) Class.forName(AoC.class.getPackageName() + "." + className);
             AoC instance = clazz.getDeclaredConstructor().newInstance();
             instance.run();
         } catch (Exception e) {
