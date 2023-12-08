@@ -1,14 +1,16 @@
 package fr.ela.aoc2023;
 
+import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class D08 extends AoC {
 
-    private final Pattern PATTERN = Pattern.compile("([A-Z]{3}) = \\(([A-Z]{3}), ([A-Z]{3})\\)");
+    private final Pattern PATTERN = Pattern.compile("([A-Z0-9]{3}) = \\(([A-Z0-9]{3}), ([A-Z0-9]{3})\\)");
 
     private class Plan {
 
@@ -38,25 +40,46 @@ public class D08 extends AoC {
             };
         }
 
-        int countStepsToZZZ() {
+        long countStepsToZZZ() {
+            return countStepsToUntil("AAA", "ZZZ"::equals);
+        }
+
+        int countStepsToUntil(String start, Predicate<String> stop) {
             int count = 0;
             int size = directions.length();
-            String next = "AAA";
-            while (!"ZZZ".equals(next)) {
+            String next = start;
+            while (! stop.test(next)) {
                 next = next(next, directions.charAt((count % size)));
                 count++;
             }
             return count;
         }
 
+        long countGhostsSteps() {
+            Predicate<String> stop = s -> s.charAt(2) == 'Z';
+            List<String> start = right.keySet().stream().filter(s -> s.charAt(2) == 'A').toList();
+
+            BigInteger result = start.stream().map(s -> countStepsToUntil(s, stop)).map(BigInteger::valueOf)
+                    .reduce(D08::lcm).orElseThrow();
+            return result.longValue();
+        }
+
+    }
+
+    public static BigInteger lcm(BigInteger number1, BigInteger number2) {
+        BigInteger gcd = number1.gcd(number2);
+        BigInteger absProduct = number1.multiply(number2).abs();
+        return absProduct.divide(gcd);
     }
 
     @Override
     public void run() {
         Plan testPlan = new Plan(list(getTestInputPath()));
         System.out.println("Test plan : "+ testPlan.countStepsToZZZ()+" steps to reach ZZZ (2)");
-
+        Plan testPlan2 = new Plan(list(getPath("input-test2")));
+        System.out.println("Test plan : "+ testPlan2.countGhostsSteps()+" ghosts steps to reach Z (2)");
         Plan plan = new Plan(list(getInputPath()));
         System.out.println("Plan : "+ plan.countStepsToZZZ()+" steps to reach ZZZ (17263)");
+        System.out.println("Plan : "+ plan.countGhostsSteps()+" ghosts to reach **Z (14631604759649)");
     }
 }
