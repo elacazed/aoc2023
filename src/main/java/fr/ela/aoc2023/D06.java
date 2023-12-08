@@ -8,29 +8,36 @@ import java.util.stream.IntStream;
 public class D06 extends AoC {
 
     /**
-     * Your toy boat has a starting speed of zero millimeters per millisecond.
-     * For each whole millisecond you spend at the beginning of the race holding down the button, the boat's speed increases by one millimeter per millisecond.
-     * <p>
      * Race : Time allowed, record distance.
-     * <p>
-     * s : speed
-     * d = (time - s) * s
-     * <p>
-     * 2 -> 5
-     * 4 -> 11
-     * 11 -> 19
+     * With:
+     *  T = time allowed,
+     *  D = record distance
+     *  x = time holding the button,
+     *  The distance d wan be expressed as : d = (T - x) * x
+     *
+     *  We are looking for x such as :
+     *     x is an integer, and :
+     *     D < (T -x) * x
+     *
+     *  => x² - Tx + D < 0
+     *  So we need to count integers between the 2 roots (excluded) of the 2nd degree polynomial function
+     *
+     * Delta = T² - 4 D
+     * r1 = (T - sqrt(delta)) / 2
+     * r2 = (T + sqrt(delta)) / 2
      */
 
     record Race(long time, long best) {
         long waysToWin() {
-            double delta = (time * time) - 4 * best;
-            long r1 = (long) Math.floor((time - Math.sqrt(delta)) / 2) + 1;
-
-            double r2Exact = (time + Math.sqrt(delta)) / 2;
-            double r2Floor = Math.floor(r2Exact);
-            long r2 = (long) (r2Floor == r2Exact ? r2Floor - 1 : r2Floor);
-            long result = r2 - r1 + 1;
-            return result;
+            double delta = (double) (time * time) - 4 * best;
+            double r1 = (time - Math.sqrt(delta)) / 2;
+            double r2 = (time + Math.sqrt(delta)) / 2;
+            // Lowest root : we add 1 to the floor to be sure to exclude the root if it is an integer.
+            long nextIntegerGreaterThanR1 = (long) Math.floor(r1) + 1;
+            // Highest root, which must be excluded if it is an integer.
+            long r2floor = (long) Math.floor(r2);
+            long integerLowerThanR2 = r2 == r2floor ? r2floor - 1 : r2floor;
+            return integerLowerThanR2 - nextIntegerGreaterThanR1 + 1;
         }
 
         static Race longRace(List<Race> races) {
