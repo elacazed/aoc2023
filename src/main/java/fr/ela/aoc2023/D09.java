@@ -1,19 +1,19 @@
 package fr.ela.aoc2023;
 
-import java.math.BigInteger;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import java.util.Stack;
-import java.util.function.Predicate;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class D09 extends AoC {
+
+    public record Pair(long left, long right) {
+
+        public Pair add(Pair other) {
+            return new Pair(left+other.left, right+other.right);
+        }
+    }
 
     public class Sequence {
         List<Long> values;
@@ -22,26 +22,27 @@ public class D09 extends AoC {
             values = Arrays.stream(line.split(" ")).map(Long::parseLong).toList();
         }
 
-        long getNextHistoryValue() {
-            Stack<Long> stack = new Stack<>();
+        Pair getNextHistoryValue() {
+            Stack<Pair> stack = new Stack<>();
             LinkedList<Long> ints = new LinkedList<>(values);
-            while (! ints.stream().allMatch(i -> i ==0)) {
-                stack.push(ints.getLast());
+            while (!ints.stream().allMatch(i -> i == 0)) {
+                stack.push(new Pair(ints.getFirst(), ints.getLast()));
                 ints = reduce(ints);
             }
-            long res = 0;
-            while ( ! stack.isEmpty()) {
-                res = stack.pop() + res;
+            Pair res = new Pair(0,0);
+            while (!stack.isEmpty()) {
+                Pair last = stack.pop();
+                res = new Pair(last.left - res.left, last.right + res.right);
             }
-            //System.out.println(" next value for "+values.stream().map(Object::toString).collect(Collectors.joining(", "))+" : "+res);
             return res;
         }
 
         LinkedList<Long> reduce(List<Long> ints) {
             LinkedList<Long> result = new LinkedList<>();
-            for (int i=1; i < ints.size(); i++) {
-                result.add(ints.get(i) - ints.get(i-1));
+            for (int i = 1; i < ints.size(); i++) {
+                result.add(ints.get(i) - ints.get(i - 1));
             }
+
             return result;
         }
 
@@ -49,11 +50,12 @@ public class D09 extends AoC {
 
     @Override
     public void run() {
-        long tres = list(getTestInputPath(), Sequence::new).stream().mapToLong(Sequence::getNextHistoryValue).sum();
-        System.out.println("Test value part 1 (114) : "+tres);
+        Pair test = list(getTestInputPath(), Sequence::new).stream().map(Sequence::getNextHistoryValue).reduce(new Pair(0,0), Pair::add);
+        System.out.println("Test value part 1 (114) : " + test.right);
+        System.out.println("Test value part 2 (2) : " + test.left);
 
-        long res = list(getInputPath(), Sequence::new).stream().mapToLong(Sequence::getNextHistoryValue).sum();
-        System.out.println("Test value part 1 (114) : "+res);
-        //test result : 114
+        Pair result = list(getInputPath(), Sequence::new).stream().map(Sequence::getNextHistoryValue).reduce(new Pair(0,0), Pair::add);
+        System.out.println("Result part 1 (1884768153) : " + result.right);
+        System.out.println("Result part 2 (1031) : " + result.left);
     }
 }
