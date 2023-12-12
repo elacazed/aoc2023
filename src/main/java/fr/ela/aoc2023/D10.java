@@ -2,13 +2,11 @@ package fr.ela.aoc2023;
 
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import java.util.Stack;
-import java.util.function.BiFunction;
-import java.util.function.Function;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 public class D10 extends AoC {
@@ -53,6 +51,7 @@ public class D10 extends AoC {
                     }
                 }
             }
+            grid.put(startPosition, resolveStartType());
         }
 
         char charAt(Position pos) {
@@ -72,8 +71,8 @@ public class D10 extends AoC {
             LinkedList<Position> loop = new LinkedList<>();
             loop.add(startPosition);
             Position next = next(startPosition, null);
-            Position prev = loop.getLast();
-            while (! next.equals(startPosition)) {
+            Position prev;
+            while (!next.equals(startPosition)) {
                 prev = loop.getLast();
                 loop.add(next);
                 next = next(loop.getLast(), prev);
@@ -108,7 +107,7 @@ public class D10 extends AoC {
             Position right = right(current);
             Position next = null;
             if (current.equals(startPosition)) {
-                next = switch (resolveStartType()) {
+                next = switch (charAt(startPosition)) {
                     case '|', 'L', 'J' -> up;
                     case '-', 'F' -> right;
                     case '7' -> down;
@@ -127,17 +126,94 @@ public class D10 extends AoC {
             }
             return next;
         }
+
+        boolean isAnAngle(Position p) {
+            char c = charAt(p);
+            return switch (c) {
+                case 'J', 'L', '7', 'F' -> true;
+                default -> false;
+            };
+        }
+
+        /**
+         * Pick's theorem (https://en.wikipedia.org/wiki/Pick%27s_theorem)
+         * loopArea = interiorPointsCount + (boundaryPointsCount / 2) - 1
+         * <p>
+         * Part 2 answer is interiorPointsCount
+         * transforming Pick's formula:
+         * interiorPointsCount = loopArea - (boundaryPointsCount / 2) + 1
+         * <p>
+         * boundaryPointsCount is length of loop (practically part1 answer * 2)
+         * <p>
+         * loopArea can by calculated using Shoelace formula (https://en.wikipedia.org/wiki/Shoelace_formula):
+         * angles = (x1, y1) (x2, y2) (x3, y3) ...
+         * 2 * loopArea = x1 * y2 - y1 * x2 + x2 * y3 - x3 * y2 + ...
+         * loopArea = result / 2
+         */
+        public long getLoopArea(LinkedList<Position> loop) {
+            int loopLength = loop.size();
+            //vertices are delimited by direction changes, eg : F,J,7,L
+            List<Position> polygon = loop.stream().filter(this::isAnAngle).toList();
+            int polygonSize = polygon.size();
+            var area = 0;
+
+            for (int i = 0; i < polygonSize; i++) {
+                int nextIndex = (i + 1) % polygonSize;
+                Position current = polygon.get(i);
+                Position next = polygon.get(nextIndex);
+                area += current.x * next.y - current.y * next.x;
+            }
+
+            area = Math.abs(area) / 2;
+            return area - loopLength / 2 + 1;
+        }
+
+
+        boolean isUpConnection(Position p) {
+            char c = charAt(p);
+            return switch (c) {
+                case 'J', 'L', '|' -> true;
+                default -> false;
+            };
+        }
+
+        public long pointsInsideLoop(LinkedList<Position> loop) {
+            // remove all pipes int grid that are not part of the loop
+            Set<Position> pos = new HashSet<>(grid.keySet());
+            loop.forEach(pos::remove);
+            pos.forEach(grid::remove);
+            int points = 0;
+            for (int y = 0; y < height; y++) {
+                int vertPipeCount = 0;
+                for (int x = 0; x < width; x++) {
+                    Position p = new Position(x, y);
+                    if (isUpConnection(p)) {
+                        vertPipeCount++;
+                    }
+                    if (charAt(p) == '.' && vertPipeCount % 2 == 1) {
+                        points++;
+                    }
+                }
+            }
+            return points;
+        }
+
     }
+
 
     @Override
     public void run() {
         Grid testGrid = new Grid(list(getTestInputPath()));
         LinkedList<Position> testLoop = testGrid.walk();
-        System.out.println("Test grid start position pipe : "+testGrid.resolveStartType()+", most distant point in loop : "+ (testLoop.size() / 2));
+        System.out.println("Test grid start position pipe : " + testGrid.charAt(testGrid.startPosition) + ", most distant point in loop : " + (testLoop.size() / 2));
+        Grid testGrid2 = new Grid(list(getPath("input-test2")));
+        LinkedList<Position> testLoop2 = testGrid2.walk();
+        System.out.println("Test loop points count (4) : first solution : " + testGrid2.pointsInsideLoop(testLoop2) + " Second solution : " + testGrid2.getLoopArea(testLoop2));
 
 
         Grid grid = new Grid(list(getInputPath()));
         LinkedList<Position> loop = grid.walk();
-        System.out.println("Grid start position pipe : "+grid.resolveStartType()+", most distant point in loop : "+ (loop.size() / 2));
+        System.out.println("Grid start position pipe : " + grid.charAt(grid.startPosition) + ", most distant point in loop (6886): " + (loop.size() / 2));
+        System.out.println("Loop points count (371): first solution : " + grid.pointsInsideLoop(loop) + " Second solution : " + grid.getLoopArea(loop));
     }
 }
