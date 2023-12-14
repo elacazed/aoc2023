@@ -1,18 +1,31 @@
 package fr.ela.aoc2023;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
-
+import java.util.stream.IntStream;
 
 public class D12 extends AoC {
+
+    private HashMap<HotSprings, Long> cache = new HashMap<>();
 
     public record HotSprings(String map, List<Integer> groups) {
 
         static HotSprings parse(String line) {
             String[] parts = line.split(" ");
             return new HotSprings(parts[0], Arrays.stream(parts[1].split(",")).map(Integer::parseInt).toList());
+        }
+
+        HotSprings unfold() {
+            List<String> unfoldedMap = new ArrayList<>();
+            List<Integer> unfoldedGroups = new ArrayList<>(groups.size() * 5);
+            IntStream.range(0, 5).forEach(i -> {
+                unfoldedGroups.addAll(groups);
+                unfoldedMap.add(map);
+            });
+            return new HotSprings(String.join("?", unfoldedMap), unfoldedGroups);
         }
 
         HotSprings removeFirstSpring() {
@@ -43,31 +56,41 @@ public class D12 extends AoC {
             }
             return Optional.of(new HotSprings(map.substring(nb + 1), groups.subList(1, groups.size())));
         }
-
-        long countPermutations() {
-            if (map.isEmpty()) {
-                return groups.isEmpty() ? 1 : 0;
-            }
-
-            char firstChar = map.charAt(0);
-            return switch (firstChar) {
-                case '.' -> removeFirstSpring().countPermutations();
-                case '?' -> replaceFirstSpring('.').countPermutations() + replaceFirstSpring('#').countPermutations();
-                case '#' -> maybeRemoveGroup().map(HotSprings::countPermutations).orElse(0L);
-                default -> throw new IllegalArgumentException();
-            };
-        }
     }
 
+    long countPermutations(HotSprings hs) {
+        if (hs.map.isEmpty()) {
+            return hs.groups.isEmpty() ? 1 : 0;
+        }
+        if (cache.containsKey(hs)) {
+            return cache.get(hs);
+        }
+
+        char firstChar = hs.map.charAt(0);
+        long permutations = switch (firstChar) {
+            case '.' -> countPermutations(hs.removeFirstSpring());
+            case '?' -> countPermutations(hs.replaceFirstSpring('.')) + countPermutations(hs.replaceFirstSpring('#'));
+            case '#' -> hs.maybeRemoveGroup().map(this::countPermutations).orElse(0L);
+            default -> throw new IllegalArgumentException();
+        };
+        cache.put(hs, permutations);
+        return permutations;
+    }
 
 
     @Override
     public void run() {
-        long testPart1 = list(getTestInputPath(), HotSprings::parse).stream().mapToLong(HotSprings::countPermutations).sum();
+        List<HotSprings> testSprings = list(getTestInputPath(), HotSprings::parse);
+        long testPart1 = testSprings.stream().mapToLong(this::countPermutations).sum();
         System.out.println("Test number of permutations (21): " + testPart1);
+        long testPart2 = testSprings.stream().map(HotSprings::unfold).mapToLong(this::countPermutations).sum();
+        System.out.println("Test number of unfolded permutations (525152): " + testPart2);
 
-        long part1 = list(getInputPath(), HotSprings::parse).stream().mapToLong(HotSprings::countPermutations).sum();
+        List<HotSprings> springs = list(getInputPath(), HotSprings::parse);
+        long part1 = springs.stream().mapToLong(this::countPermutations).sum();
         System.out.println("Number of permutations (7402): " + part1);
+        long part2 = springs.stream().map(HotSprings::unfold).mapToLong(this::countPermutations).sum();
+        System.out.println("Number of unfolded permutations (3384337640277): " + part2);
     }
 
 
