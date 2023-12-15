@@ -3,6 +3,7 @@ package fr.ela.aoc2023;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BiPredicate;
+import java.util.function.Function;
 import java.util.stream.IntStream;
 
 public class D13 extends AoC {
@@ -36,36 +37,27 @@ public class D13 extends AoC {
             return new LandPattern(rot, Axis.VERTICAL);
         }
 
-        public Reflection findReflection() {
+        public Reflection findReflection(Function<Integer, SymetryMatcher> matcherBuilder) {
             for (int i = 1; i < lines.size(); i++) {
-                final int index = i;
-                boolean symetry = IntStream.range(0, Math.min(index, lines.size() - index))
-                        .allMatch(offset -> matches(index, offset));
-                if (symetry) {
+                SymetryMatcher matcher = matcherBuilder.apply(i);
+                boolean symetry = IntStream.range(0, Math.min(i, lines.size() - i))
+                        .allMatch(offset -> matcher.test(offset, this));
+                if (matcher.hasSymetry(symetry)) {
                     return new Reflection(axis, i);
                 }
             }
             if (axis == Axis.VERTICAL) {
                 throw new IllegalArgumentException("No symetry");
             }
-            return rotate().findReflection();
+            return rotate().findReflection(matcherBuilder);
+        }
+
+        public Reflection findReflection() {
+            return findReflection(SymetryMatcher::new);
         }
 
         public Reflection findFudgeReflection() {
-            for (int i = 1; i < lines.size(); i++) {
-                final int index = i;
-                FudgeMatcher fm = new FudgeMatcher(index);
-                boolean symetry = IntStream.range(0, Math.min(index, lines.size() - index))
-                        .allMatch(offset -> fm.test(offset, this));
-
-                if (symetry && fm.foundFudge) {
-                    return new Reflection(axis, i);
-                }
-            }
-            if (axis == Axis.VERTICAL) {
-                throw new IllegalArgumentException("No symetry");
-            }
-            return rotate().findFudgeReflection();
+            return findReflection(FudgeMatcher::new);
         }
 
         boolean matches(int index, int offset) {
@@ -77,27 +69,46 @@ public class D13 extends AoC {
             String two = lines.get(index + offset);
             return IntStream.range(0, one.length()).filter(i -> one.charAt(i) != two.charAt(i)).count() == 1;
         }
-
     }
 
-    static class FudgeMatcher implements BiPredicate<Integer, LandPattern> {
-        boolean foundFudge = false;
-        final int base;
+    static class SymetryMatcher implements BiPredicate<Integer, LandPattern> {
 
-        FudgeMatcher(int base) {
-            this.base = base;
+        final int index;
+
+        SymetryMatcher(int index) {
+            this.index = index;
         }
 
         @Override
-        public boolean test(Integer integer, LandPattern landPattern) {
-            if (landPattern.matches(base, integer)) {
+        public boolean test(Integer offset, LandPattern landPattern) {
+            return landPattern.matches(index, offset);
+        }
+
+        boolean hasSymetry(boolean symetry) {
+            return symetry;
+        }
+    }
+
+    static class FudgeMatcher extends SymetryMatcher {
+        boolean foundFudge = false;
+        FudgeMatcher(int base) {
+            super(base);
+        }
+
+        @Override
+        public boolean test(Integer offset, LandPattern landPattern) {
+            if (super.test(offset, landPattern)) {
                 return true;
             }
-            if (! foundFudge && landPattern.hasFudge(base, integer)) {
+            if (! foundFudge && landPattern.hasFudge(index, offset)) {
                 foundFudge = true;
                 return true;
             }
             return false;
+        }
+
+        boolean hasSymetry(boolean symetry) {
+            return super.hasSymetry(symetry) && foundFudge;
         }
     }
 
