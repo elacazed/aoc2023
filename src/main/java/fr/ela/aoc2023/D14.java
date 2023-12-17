@@ -1,18 +1,50 @@
 package fr.ela.aoc2023;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.function.UnaryOperator;
 
 public class D14 extends AoC {
+
+    record State(String platform) {
+    }
 
     record Position(int x, int y) {
         Position north() {
             return new Position(x, y - 1);
+        }
+
+        Position south() {
+            return new Position(x, y + 1);
+        }
+
+        Position west() {
+            return new Position(x - 1, y);
+        }
+
+        Position east() {
+            return new Position(x + 1, y);
+        }
+    }
+
+    public enum Direction {
+        NORTH(Position::north, Position::south, Comparator.comparing(Position::y)),
+        WEST(Position::west, Position::east, Comparator.comparing(Position::x)),
+        SOUTH(Position::south, Position::north, Comparator.comparing(Position::y).reversed()),
+        EAST(Position::east, Position::west, Comparator.comparing(Position::x).reversed());
+
+        private final UnaryOperator<Position> direction;
+        private final UnaryOperator<Position> opposite;
+        private final Comparator<Position> sort;
+
+        Direction(UnaryOperator<Position> direction, UnaryOperator<Position> opposite, Comparator<Position> sort) {
+            this.direction = direction;
+            this.opposite = opposite;
+            this.sort = sort;
         }
     }
 
@@ -26,22 +58,10 @@ public class D14 extends AoC {
         final int height;
         final Map<Position, Rock> rocks = new HashMap<>();
 
-        Position north(Position pos) {
-            if (pos.y == 0) {
-                return pos;
-            }
-            Position north = new Position(pos.x, pos.y - 1);
-            if (!rocks.containsKey(north)) {
-                Position nnorth = new Position(north.x, north.y - 1);
-                while (nnorth.y >= 0 && !rocks.containsKey(nnorth)) {
-                    north = nnorth;
-                    nnorth = new Position(north.x, north.y - 1);
-                }
-                return north;
-            } else {
-                return pos;
-            }
+        boolean available(Position position) {
+            return !rocks.containsKey(position) && position.x >= 0 && position.y >= 0 && position.x < width && position.y < height;
         }
+
 
         public Platform(List<String> lines) {
             height = lines.size();
@@ -57,18 +77,31 @@ public class D14 extends AoC {
             }
         }
 
-        public void tiltNorth() {
+        Position slide(Position pos, UnaryOperator<Position> direction, UnaryOperator<Position> opposite) {
+            Position next = direction.apply(pos);
+            while (available(next)) {
+                next = direction.apply(next);
+            }
+            return opposite.apply(next);
+        }
+
+        public void tilt(Direction direction) {
             List<Map.Entry<Position, Rock>> rollingRocks = rocks.entrySet().stream().filter(e -> e.getValue().rock == 'O')
-                    .sorted(Comparator.comparing(e -> e.getKey().y)).toList();
+                    .sorted(Map.Entry.comparingByKey(direction.sort)).toList();
             for (var e : rollingRocks) {
                 Position pos = e.getKey();
-                Position north = north(pos);
-                if (!north.equals(pos)) {
-                    Rock rock = rocks.remove(pos);
-
-                    rocks.put(north, rock);
-                }
+                Position north = slide(pos, direction.direction, direction.opposite);
+                Rock rock = rocks.remove(pos);
+                rocks.put(north, rock);
             }
+            //System.out.println("Tilting "+direction+"\n"+this);
+        }
+
+        public State step() {
+            for (Direction direction : Direction.values()) {
+                tilt(direction);
+            }
+            return new State(toString());
         }
 
         long getTotalLoad() {
@@ -93,18 +126,38 @@ public class D14 extends AoC {
             }
             return String.join("\n", sb);
         }
+
+        public long getLoad(int steps) {
+            List<State> states = new ArrayList<>();
+            states.add(step());
+            int count = 1;
+            while (count < steps && !states.contains(step())) {
+                states.add(new State(toString()));
+                count++;
+            }
+            int offset = states.indexOf(new State(toString()));
+            int cycleLength = count - offset;
+            int remaining = (steps - 1 - offset) % cycleLength;
+            State end = states.get(offset + remaining);
+            Platform platform = new Platform(Arrays.stream(end.platform.split("\n")).toList());
+            return platform.getTotalLoad();
+        }
     }
 
     @Override
     public void run() {
         Platform test = new Platform(list(getTestInputPath()));
-        test.tiltNorth();
+        test.tilt(Direction.NORTH);
         System.out.println("Test Load part 1 (136) : " + test.getTotalLoad());
+        long testPart2 = new Platform(list(getTestInputPath())).getLoad(1_000_000_000);
+        System.out.println("Test Load part 2 (64) : " + testPart2);
 
         Platform platform = new Platform(list(getInputPath()));
-        platform.tiltNorth();
+        platform.tilt(Direction.NORTH);
         System.out.println("Load part 1 (105784) : " + platform.getTotalLoad());
+        platform = new Platform(list(getInputPath()));
+        long part2 = platform.getLoad(1_000_000_000);
+        System.out.println("Load part 2 (91286) : " + part2);
     }
-
-
 }
+
