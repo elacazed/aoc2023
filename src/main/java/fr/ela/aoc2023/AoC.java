@@ -108,26 +108,36 @@ public abstract class AoC {
     }
 
     public static void main(String[] args) {
-        if (args.length == 0 || "last".equals(args[0])) {
-            try {
+        try {
+            if (args.length == 0 || "last".equals(args[0])) {
                 Path path = Path.of("src/main/java", AoC.class.getPackageName().split("\\."));
                 String name = Files.list(path).map(Path::getFileName).map(Path::toString).filter(p -> p.endsWith(".java")).max(Comparator.naturalOrder()).orElse("");
-                if (name.endsWith(".java"))  {
+                if (name.endsWith(".java")) {
                     name = name.substring(0, name.length() - ".java".length());
                 }
                 run(name);
-            } catch (IOException e) {
-                e.printStackTrace();
+            } else if (args.length == 1 && "all".equals(args[0])) {
+                Path path = Path.of("src/main/java", AoC.class.getPackageName().split("\\."));
+                Files.list(path).map(Path::getFileName).map(Path::toString)
+                        .filter(p -> ! p.endsWith(AoC.class.getSimpleName()+".java"))
+                        .filter(p -> p.endsWith(".java"))
+                        .map(name -> name.substring(0, name.length() - ".java".length()))
+                        .sorted(Comparator.naturalOrder()).forEach(AoC::run);
+            } else {
+                Arrays.stream(args).forEach(AoC::run);
             }
+        } catch (IOException e) {
+            e.printStackTrace();
         }
-        Arrays.stream(args).forEach(AoC::run);
     }
 
     private static void run(String className) {
         try {
             Class<AoC> clazz = (Class<AoC>) Class.forName(AoC.class.getPackageName() + "." + className);
             AoC instance = clazz.getDeclaredConstructor().newInstance();
+            System.out.println("---- AoC "+clazz.getSimpleName()+" -----------");
             instance.run();
+            System.out.println("");
         } catch (Exception e) {
             e.printStackTrace();
         }

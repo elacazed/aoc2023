@@ -16,7 +16,7 @@ public class D11 extends AoC {
 
         Universe universe = Universe.parse(list(getInputPath()));
         System.out.println("Universe distances sum (9623138): " + universe.expand(2).calculate());
-        System.out.println("Universe distances sum (9623138): " + universe.expand(1_000_000).calculate());
+        System.out.println("Universe distances sum (726820169514): " + universe.expand(1_000_000).calculate());
     }
 
     public record Galaxy(long id, long x, long y) {

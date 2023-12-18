@@ -156,7 +156,7 @@ public class D16 extends AoC {
         Grid grid = new Grid(list(getInputPath()));
         long energized = grid.energize();
         System.out.println("Energized Tiles count (7199) : " + energized);
-        System.out.println("Test Grid max energy (51) : " + grid.maxEnergy());
+        System.out.println("Test Grid max energy (7438) : " + grid.maxEnergy());
 
     }
 }
