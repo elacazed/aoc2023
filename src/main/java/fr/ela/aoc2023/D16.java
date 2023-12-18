@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.IntStream;
 
 public class D16 extends AoC {
 
@@ -95,10 +96,12 @@ public class D16 extends AoC {
         }
 
         long energize() {
-            Set<State> states = energize(new State(new Position(0, 0), Direction.EAST), new HashSet<>());
+            return energize(new State(new Position(0, 0), Direction.EAST));
+        }
+        long energize(State initial) {
+            Set<State> states = energize(initial, new HashSet<>());
             return states.stream().map(s -> s.position).distinct().count();
         }
-
         Set<State> energize(State initial, Set<State> visited) {
 
             Deque<State> stack = new LinkedList<>();
@@ -122,6 +125,26 @@ public class D16 extends AoC {
             return visited;
         }
 
+        Set<State> startingPositions() {
+            Set<State> states = new HashSet<>();
+            IntStream.range(0, height).forEach(
+                    y -> {
+                        states.add(new State(new Position(0, y), Direction.EAST));
+                        states.add(new State(new Position(width - 1, y), Direction.WEST));
+                    }
+            );
+            IntStream.range(0, width).forEach(
+                    x -> {
+                        states.add(new State(new Position(x, 0), Direction.SOUTH));
+                        states.add(new State(new Position(x,height - 1), Direction.NORTH));
+                    }
+            );
+            return states;
+        }
+
+        long maxEnergy() {
+            return startingPositions().stream().mapToLong(this::energize).max().orElse(-1);
+        }
     }
 
     @Override
@@ -129,9 +152,12 @@ public class D16 extends AoC {
         Grid testGrid = new Grid(list(getTestInputPath()));
         long testEnergized = testGrid.energize();
         System.out.println("Test Grid energized Tiles count (46) : " + testEnergized);
+        System.out.println("Test Grid max energy (51) : " + testGrid.maxEnergy());
         Grid grid = new Grid(list(getInputPath()));
         long energized = grid.energize();
         System.out.println("Energized Tiles count (7199) : " + energized);
+        System.out.println("Test Grid max energy (51) : " + grid.maxEnergy());
+
     }
 }
 
