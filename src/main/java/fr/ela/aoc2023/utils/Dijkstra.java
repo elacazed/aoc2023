@@ -13,23 +13,37 @@ import java.util.function.Predicate;
 public class Dijkstra<N, C extends Comparable<C>> {
     private final Function<N, List<N>> advance;
     private final Function<N, C> costFunction;
-
     private final BinaryOperator<C> costAccumulator;
+    private final Comparator<State> comparator;
 
-    public Dijkstra(Function<N, List<N>> advance, Function<N, C> costFunction, BinaryOperator<C> accumulator) {
+    public Dijkstra(Function<N, List<N>> advance, Function<N, C> costFunction, Comparator<N> tieBreaker, BinaryOperator<C> accumulator) {
         this.advance = advance;
         this.costFunction = costFunction;
         this.costAccumulator = accumulator;
+        Comparator<State> costComparator = Comparator.comparing(s -> s.cost);
+        if (tieBreaker != null) {
+            Comparator<State> comp = (s1, s2) -> tieBreaker.compare(s1.node, s2.node);
+            this.comparator = costComparator.thenComparing(comp);
+        } else {
+            this.comparator = costComparator;
+        }
+    }
+    public Dijkstra(Function<N, List<N>> advance, Function<N, C> costFunction, BinaryOperator<C> accumulator) {
+        this(advance, costFunction, null, accumulator);
     }
 
     public static <K> Dijkstra<K, Long> longDijkstra(Function<K, List<K>> advance, Function<K, Long> costFunction) {
         return new Dijkstra<>(advance, costFunction, Long::sum);
     }
 
+    public static <K> Dijkstra<K, Long> longDijkstra(Function<K, List<K>> advance, Function<K, Long> costFunction, Comparator<K> tieBreaker) {
+        return new Dijkstra<>(advance, costFunction, tieBreaker, Long::sum);
+    }
+
     public Path<N, C> findShortestPath(List<N> start, Predicate<N> endReached) {
         HashSet<N> visited = new HashSet<>();
 
-        PriorityQueue<State> queue = new PriorityQueue<>(Comparator.comparing(s -> s.cost));
+        PriorityQueue<State> queue = new PriorityQueue<>(comparator);
 
         start.stream().map(s -> new State(s, costFunction.apply(s), null)).forEach(queue::add);
         while (!queue.isEmpty()) {

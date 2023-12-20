@@ -13,7 +13,6 @@ import java.util.stream.Collectors;
 
 public class D17 extends AoC {
 
-
     public record Block(Position position, Direction direction, int steps) {
         Block(int x, int y, Direction direction, int steps) {
             this(new Position(x, y), direction, steps);
@@ -42,20 +41,11 @@ public class D17 extends AoC {
         }
     }
 
-
     public static class City {
         private final Grid<Long> heatLossGrid;
 
         public City(List<String> lines) {
             heatLossGrid = Grid.parseCharactersGrid(lines, c -> (long) (c - '0'));
-        }
-
-        public List<Block> getCrucibleNextNodes(Block from) {
-            return from.next().stream().filter(n -> heatLossGrid.inBounds(n.position)).toList();
-        }
-
-        public List<Block> getUltraCrucibleNextNodes(Block from) {
-            return from.ultraNext().stream().filter(n -> heatLossGrid.inBounds(n.position)).toList();
         }
 
         public boolean isExit(Block block) {
@@ -66,10 +56,10 @@ public class D17 extends AoC {
             Function<Block, List<Block>> nextNodes = ultra ? Block::ultraNext : Block::next;
             nextNodes = nextNodes.andThen(l -> l.stream().filter(b -> heatLossGrid.inBounds(b.position)).toList());
 
-            Dijkstra<Block, Long> dijkstra = Dijkstra.longDijkstra(nextNodes, n -> heatLossGrid.get(n.position));
+            Dijkstra<Block, Long> dijkstra = Dijkstra.longDijkstra(nextNodes, n -> heatLossGrid.get(n.position()));
             List<Block> starts = List.of(
-                    new Block(1, 0, Direction.EAST, 1),
-                    new Block(0, 1, Direction.SOUTH, 1));
+                    new Block(1, 0, Direction.EAST, 0),
+                    new Block(0, 1, Direction.SOUTH, 0));
             return dijkstra.findShortestPath(starts, this::isExit);
         }
 
@@ -79,7 +69,7 @@ public class D17 extends AoC {
                 char c = switch (n.direction()) {
                     case EAST -> '>';
                     case WEST -> '<';
-                    case SOUTH -> 'V';
+                    case SOUTH -> 'v';
                     case NORTH -> '^';
                 };
                 lines.get(n.position.y())[n.position.x()] = c;
@@ -91,16 +81,24 @@ public class D17 extends AoC {
     @Override
     public void run() {
         City testCity = new City(list(getTestInputPath()));
+        Long time = System.currentTimeMillis();
         Path<Block, Long> testPath = testCity.findLessHeatLosingPath(false);
-        System.out.println("Test Cave best path (102) : " + testPath.cost());
+        time = System.currentTimeMillis() - time;
+        System.out.println("Test Cave best path (102) : " + testPath.cost()+" (+"+time+" ms)");
+        time = System.currentTimeMillis();
         testPath = testCity.findLessHeatLosingPath(true);
-        System.out.println("Test Cave best path (94) : " + testPath.cost());
+        time = System.currentTimeMillis() - time;
+        System.out.println("Test Cave best path (94) : " + testPath.cost()+" (+"+time+" ms)");
 
         City city = new City(list(getInputPath()));
+        time = System.currentTimeMillis();
         Path<Block, Long> path = city.findLessHeatLosingPath(false);
-        System.out.println("Cave best path (817) : " + path.cost());
+        time = System.currentTimeMillis() - time;
+        System.out.println("Cave best path (817) : " + path.cost()+" (+"+time+" ms)");
+        time = System.currentTimeMillis();
         path = city.findLessHeatLosingPath(true);
-        System.out.println("Cave best path (925) : " + path.cost());
+        time = System.currentTimeMillis() - time;
+        System.out.println("Cave best path (925) : " + path.cost()+" (+"+time+" ms)");
     }
 }
 
