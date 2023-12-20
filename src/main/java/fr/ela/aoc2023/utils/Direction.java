@@ -10,13 +10,16 @@ public enum Direction {
     final int xOffset;
     final int yOffset;
 
-    Direction(int xOfsset, int yOffset) {
-        this.xOffset = xOfsset;
+    Direction(int xOffset, int yOffset) {
+        this.xOffset = xOffset;
         this.yOffset = yOffset;
     }
-
     public Position move(Position from) {
-        return new Position(from.x() + xOffset, from.y() + yOffset);
+        return move(from, 1);
+    }
+
+    public Position move(Position from, int amount) {
+        return new Position(from.x() + amount * xOffset, from.y() + amount * yOffset);
     }
     public Direction left() {
         return switch (this) {

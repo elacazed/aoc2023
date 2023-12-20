@@ -72,7 +72,7 @@ public class D17 extends AoC {
                     case SOUTH -> 'v';
                     case NORTH -> '^';
                 };
-                lines.get(n.position.y())[n.position.x()] = c;
+                lines.get((int) n.position.y())[(int) n.position.x()] = c;
             });
             return lines.stream().map(String::new).collect(Collectors.joining("\n"));
         }
