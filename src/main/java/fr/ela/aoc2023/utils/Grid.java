@@ -1,13 +1,9 @@
 package fr.ela.aoc2023.utils;
 
-import fr.ela.aoc2023.D16;
-import fr.ela.aoc2023.D17;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.function.Function;
 
 public class Grid<N> {
@@ -29,13 +25,17 @@ public class Grid<N> {
         for (int y = 0; y < height; y++) {
             String line = lines.get(y);
             for (int x = 0; x < width; x++) {
-                char c = line.charAt(x);
-                if (c != '.') {
+                K k = mapper.apply(line.charAt(x));
+                if (k != null) {
                     grid.map.put(new Position(x, y), mapper.apply(line.charAt(x)));
                 }
             }
         }
         return grid;
+    }
+
+    public List<Position> getPositionsOf(N value) {
+        return map.entrySet().stream().filter(e -> e.getValue().equals(value)).map(Map.Entry::getKey).toList();
     }
 
     public int getWidth() {
@@ -53,6 +53,9 @@ public class Grid<N> {
     public N get(Position pos) {
         return map.get(pos);
     }
+    public void put(Position pos, N value) {
+        map.put(pos, value);
+    }
 
     public boolean inBounds(Position pos) {
         return pos.x() >= 0 && pos.y() >= 0 && pos.x() < width && pos.y() < height;
@@ -61,6 +64,11 @@ public class Grid<N> {
     public boolean isBottomRightCorner(Position position) {
         return position.y() == height - 1 && position.x() == width - 1;
     }
+
+    public List<Position> cardinals(Position position) {
+        return position.cardinals().stream().filter(this::inBounds).toList();
+    }
+
 
     public List<char[]> draw(Function<N, Character> mapper) {
         List<char[]> sb = new ArrayList<>();

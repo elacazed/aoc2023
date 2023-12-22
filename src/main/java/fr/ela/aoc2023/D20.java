@@ -185,8 +185,7 @@ public class D20 extends AoC {
         // The input of rx is a single Conjonction, which has 4 conjonction as inputs.
         // We know there is a cycle in the machine state => we must find the LCM of the number of pushes each of these needs to receive a single low pulse to the input of rx
         // At this point, input(rx) will have received 4 low pulses,
-        // We push the button until each one receives a single low => on PPCM
-        // each conjonction -> RX.
+        // We push the button until each one receives a single low => LCM
         private Long pushUntilSingleLowPulseToRX() {
             // Needs to have received only high pulses => sends a low pulse to rx.
             Conjonction inputOfRx = modules.stream().filter(m -> m.next.contains("rx")).findFirst().map(Conjonction.class::cast).orElseThrow();
@@ -194,7 +193,7 @@ public class D20 extends AoC {
 
             Map<Module, Integer> map = new HashMap<>();
             int count = 0;
-            // We click until we each input of the input of rx sends a high pulse => there is at least one low pulse in its inputs.
+            // We click until each input of the input of rx sends a high pulse => there is at least one low pulse in its inputs.
             while (map.size() < inputsOfInputOfRx.size()) {
                 List<Pulse> pulses = push();
                 count++;

@@ -45,7 +45,7 @@ public class D17 extends AoC {
         private final Grid<Long> heatLossGrid;
 
         public City(List<String> lines) {
-            heatLossGrid = Grid.parseCharactersGrid(lines, c -> (long) (c - '0'));
+            heatLossGrid = Grid.parseCharactersGrid(lines, c -> c == '.' ? null : (long) (c - '0'));
         }
 
         public boolean isExit(Block block) {
