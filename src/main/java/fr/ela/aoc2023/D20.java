@@ -1,11 +1,11 @@
 package fr.ela.aoc2023;
 
+import java.math.BigInteger;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -43,7 +43,7 @@ public class D20 extends AoC {
             case "broadcaster" -> new BroadcasterModule();
             default -> switch (typeAndName.charAt(0)) {
                 case '&' -> new Conjonction(typeAndName.substring(1));
-                case '%' -> new FlipFLop(typeAndName.substring(1));
+                case '%' -> new FlipFlop(typeAndName.substring(1));
                 default -> throw new IllegalArgumentException(line);
             };
         };
@@ -64,10 +64,6 @@ public class D20 extends AoC {
 
         void add(String module) {
             this.next.add(module);
-        }
-
-        public String status() {
-            return name + " -> " + String.join(", ", next);
         }
 
         abstract Boolean nextPulse(Pulse pulse);
@@ -116,19 +112,16 @@ public class D20 extends AoC {
             return pulseMap.values().stream().anyMatch(p -> !p);
         }
 
-        public String status() {
-            String status = next.stream().map(n -> n + "[" + (pulseMap.getOrDefault(n, Boolean.FALSE) ? "H" : "L") + "]")
-                    .collect(Collectors.joining(","));
-            return "&" + super.status() + " : " + status;
-        }
-
         public void setInputs(List<String> strings) {
             strings.forEach(s -> pulseMap.put(s, Boolean.FALSE));
+        }
+        public String toString() {
+            return "Conjonction [" + name + "] " + String.join(", ", next);
         }
     }
 
 
-    public static class FlipFLop extends Module {
+    public static class FlipFlop extends Module {
         //Flip-flop modules (prefix %) are either on or off;
         // they are initially off.
         // If a flip-flop module receives a high pulse, it is ignored and nothing happens.
@@ -137,8 +130,11 @@ public class D20 extends AoC {
         // If it was on, it turns off and sends a low pulse.
         private boolean status = false;
 
-        protected FlipFLop(String name) {
+        protected FlipFlop(String name) {
             super(name);
+        }
+        public String toString() {
+            return "FlipFlop ["+name+"] "+String.join(", ", next);
         }
 
         @Override
@@ -151,13 +147,6 @@ public class D20 extends AoC {
             return out;
         }
 
-        public String status() {
-            return "%" + super.status() + " : " + status;
-        }
-    }
-
-    record MachineState(String status, long high, long low) {
-
     }
 
     public static class Machine {
@@ -165,12 +154,12 @@ public class D20 extends AoC {
         final Map<String, Module> modulesByName;
         final Module broadcaster;
 
-        String getMachineStatus() {
-            return modules.stream().map(Module::status).collect(Collectors.joining(" | "));
+        public static Machine build(List<String> lines) {
+            return new Machine(lines.stream().map(D20::parse).toList());
         }
 
-        public Machine(List<String> lines) {
-            modules = lines.stream().map(D20::parse).toList();
+        public Machine(List<Module> modules) {
+            this.modules = modules;
             modulesByName = modules.stream().collect(Collectors.toMap(Module::name, Function.identity()));
             Map<String, List<String>> moduleInputs = new HashMap<>();
             for (Module module : modules) {
@@ -185,11 +174,38 @@ public class D20 extends AoC {
             broadcaster = modulesByName.get("broadcaster");
             Set<String> outputs = modules.stream().map(m -> m.next).flatMap(List::stream).collect(Collectors.toSet());
             outputs.removeAll(modulesByName.keySet());
-            if (outputs.isEmpty()) {
-                System.out.println("No outputs!");
-            } else {
-                System.out.println("Machine outputs : " + String.join(", ", outputs));
+        }
+
+
+        List<Module> getNext(Module source) {
+            return source.next.stream().map(modulesByName::get).toList();
+        }
+
+
+        // The input of rx is a single Conjonction, which has 4 conjonction as inputs.
+        // We know there is a cycle in the machine state => we must find the LCM of the number of pushes each of these needs to receive a single low pulse to the input of rx
+        // At this point, input(rx) will have received 4 low pulses,
+        // We push the button until each one receives a single low => on PPCM
+        // each conjonction -> RX.
+        private Long pushUntilSingleLowPulseToRX() {
+            // Needs to have received only high pulses => sends a low pulse to rx.
+            Conjonction inputOfRx = modules.stream().filter(m -> m.next.contains("rx")).findFirst().map(Conjonction.class::cast).orElseThrow();
+            List<Conjonction> inputsOfInputOfRx = modules.stream().filter(m -> m.next.contains(inputOfRx.name)).map(Conjonction.class::cast).toList();
+
+            Map<Module, Integer> map = new HashMap<>();
+            int count = 0;
+            // We click until we each input of the input of rx sends a high pulse => there is at least one low pulse in its inputs.
+            while (map.size() < inputsOfInputOfRx.size()) {
+                List<Pulse> pulses = push();
+                count++;
+                for (Module target : inputsOfInputOfRx) {
+                    Long nb = pulses.stream().filter(p -> !p.high && p.to.equals(target.name)).count();
+                    if (nb != 0) {
+                        map.put(target, count);
+                    }
+                }
             }
+            return map.values().stream().mapToLong(Integer::intValue).reduce((x, y) -> x * y).orElseThrow();
         }
 
         Module getModule(String name) {
@@ -197,43 +213,25 @@ public class D20 extends AoC {
         }
 
         public Pair push(int times) {
-            Map<String, Integer> states = new HashMap<>();
-            String initialState = getMachineStatus();
-            states.put(initialState, 0);
-            int i = 1;
-            Pair total = push();
-            String status = getMachineStatus();
-            states.put(status, 1);
-            while (!initialState.equals(status) && i < times) {
-                i++;
-                total = total.add(push());
-                status = getMachineStatus();
+            Pair total = new Pair(0, 0);
+            for (int i = 0; i < times; i++) {
+                total = total.add(Pair.count(push()));
             }
-            if (i == times) {
-                System.out.println("hahaha");
-                return total;
-            }
-            int cycleLength = i;
-            int cyclesNumber = times / cycleLength;
-            int remaining = times % cycleLength;
-            if (remaining > 0) {
-                System.out.println("RESTE! ");
-            }
-            return total.multiply(cyclesNumber);
-
+            return total;
         }
 
-
-        public Pair push() {
+        public List<Pulse> push() {
+            List<Pulse> result = new ArrayList<>();
             Pulse p = new Pulse("button", false, "broadcaster");
-            List<Pulse> result = process(p);
-            return new Pair(0, 1).add(Pair.count(result));
+            result.add(p);
+            result.addAll(process(p));
+            return result;
         }
 
         public List<Pulse> process(Pulse p) {
             List<Pulse> accumulator = new ArrayList<>();
             List<Pulse> next = nextPulses(p);
-            while (! next.isEmpty()) {
+            while (!next.isEmpty()) {
                 accumulator.addAll(next);
                 next = nextPulses(next);
             }
@@ -247,6 +245,46 @@ public class D20 extends AoC {
         public List<Pulse> nextPulses(Pulse pulse) {
             return Optional.ofNullable(getModule(pulse.to)).map(m -> m.apply(pulse)).orElse(List.of());
         }
+
+
+        /* ------------ Solution found on Reddit : astonishing analysis! --- */
+
+        private Long verySmartVersionWithBinaryRepresentationOfNumber() {
+            List<Integer> loopCycles = new ArrayList<>();
+            for (Module dest : getNext(broadcaster)) {
+                List<Module> group = getBinaryCounterGroup(dest);
+                loopCycles.add(buildBinaryString(group));
+            }
+            BigInteger nbPushes = BigInteger.ONE;
+            for (int cycle : loopCycles) {
+                BigInteger bg = BigInteger.valueOf(cycle);
+                BigInteger gcd = nbPushes.gcd(bg);
+                BigInteger absProduct = nbPushes.multiply(bg).abs();
+                nbPushes = absProduct.divide(gcd);
+            }
+            return nbPushes.longValue();
+        }
+
+        private List<Module> getBinaryCounterGroup(Module source) {
+            List<Module> group = new ArrayList<>();
+            group.add(source);
+            for (Module destination : getNext(source)) {
+                if (destination instanceof FlipFlop flipflop) {
+                    group.addAll(getBinaryCounterGroup(flipflop));
+                }
+            }
+            return group;
+        }
+
+        private int buildBinaryString(List<Module> group) {
+            int size = group.size();
+            char[] digits = new char[size];
+            for (int i = 0; i < size; i++) {
+                digits[size - i - 1] = getNext(group.get(i)).stream().anyMatch(m -> m instanceof Conjonction) ? '1' : '0';
+            }
+            return Integer.parseInt(new String(digits), 2);
+        }
+
     }
 
     record Pair(long highs, long lows) {
@@ -274,17 +312,26 @@ public class D20 extends AoC {
     @Override
     public void run() {
         List<List<String>> testInputs = splitOnEmptyLines(getTestInputPath());
-        Machine testMachine1 = new Machine(testInputs.get(0));
+        Machine testMachine1 = Machine.build(testInputs.get(0));
         Pair t1 = testMachine1.push(1000);
         System.out.println("Test 1 score (32000000) : " + t1.result());
 
-        Machine testMachine2 = new Machine(testInputs.get(1));
+        Machine testMachine2 = Machine.build(testInputs.get(1));
         Pair t2 = testMachine2.push(1000);
         System.out.println("Test 2 score (11687500) : " + t2.result());
 
-        Machine machine = new Machine(list(getInputPath()));
+        Machine machine = Machine.build(list(getInputPath()));
         Pair pair = machine.push(1000);
-        System.out.println("Real Machine score (?) : " + pair.result());
+        System.out.println("Real Machine score (730797576) : " + pair.result());
+
+        machine = Machine.build(list(getInputPath()));
+        long time = System.nanoTime();
+        System.out.println("Number of pushes to get a single low pulse to RX (226732077152351) : " + machine.pushUntilSingleLowPulseToRX()+" ("+ formatDuration(Duration.ofNanos(System.nanoTime() - time))+")");
+        machine = Machine.build(list(getInputPath()));
+        time = System.nanoTime();
+        System.out.println("Clever Solution (226732077152351) : " + machine.verySmartVersionWithBinaryRepresentationOfNumber()+" ("+ formatDuration(Duration.ofNanos(System.nanoTime() - time))+")");
+
     }
+
 }
 

@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -145,6 +146,13 @@ public abstract class AoC {
 
     public static IntStream reverseRange(int start, int end) {
         return IntStream.range(start, end).map(i -> end - i - 1);
+    }
+
+    public String formatDuration(Duration duration) {
+        return duration.toSecondsPart()+" s "+duration.toMillisPart()+" ms";
+    }
+    public String formatDuration(long startNanos) {
+        return formatDuration(Duration.ofNanos(System.nanoTime() - startNanos));
     }
 
 }
