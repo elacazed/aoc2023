@@ -191,18 +191,15 @@ public class D20 extends AoC {
             Conjonction inputOfRx = modules.stream().filter(m -> m.next.contains("rx")).findFirst().map(Conjonction.class::cast).orElseThrow();
             List<Conjonction> inputsOfInputOfRx = modules.stream().filter(m -> m.next.contains(inputOfRx.name)).map(Conjonction.class::cast).toList();
 
-            Map<Module, Integer> map = new HashMap<>();
+            Map<String, Integer> map = new HashMap<>();
+            List<String> inputsToLoog = inputsOfInputOfRx.stream().map(Conjonction::name).toList();
             int count = 0;
             // We click until each input of the input of rx sends a high pulse => there is at least one low pulse in its inputs.
             while (map.size() < inputsOfInputOfRx.size()) {
                 List<Pulse> pulses = push();
                 count++;
-                for (Module target : inputsOfInputOfRx) {
-                    Long nb = pulses.stream().filter(p -> !p.high && p.to.equals(target.name)).count();
-                    if (nb != 0) {
-                        map.put(target, count);
-                    }
-                }
+                final int tot = count;
+                pulses.stream().filter(p -> !p.high && inputsToLoog.contains(p.to)).forEach(p -> map.put(p.to, tot));
             }
             return map.values().stream().mapToLong(Integer::intValue).reduce((x, y) -> x * y).orElseThrow();
         }
