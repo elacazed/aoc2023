@@ -16,4 +16,8 @@ public record Position(int x, int y) {
     public List<Position> cardinals() {
         return Arrays.stream(Direction.values()).map(d -> d.move(this)).toList();
     }
+
+    public Position modulo(int xmax, int ymax) {
+        return new Position(x % xmax, y % ymax);
+    }
 }

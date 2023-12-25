@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 public class Grid<N> {
 
@@ -69,6 +70,9 @@ public class Grid<N> {
         return position.cardinals().stream().filter(this::inBounds).toList();
     }
 
+    public List<Position> cardinalsIf(Position position, Predicate<Position> pred) {
+        return position.cardinals().stream().filter(this::inBounds).filter(pred).toList();
+    }
 
     public List<char[]> draw(Function<N, Character> mapper) {
         List<char[]> sb = new ArrayList<>();
@@ -80,5 +84,13 @@ public class Grid<N> {
             sb.add(line);
         }
         return sb;
+    }
+
+    public void remove(Position start) {
+        map.remove(start);
+    }
+
+    public boolean contains(Position pos) {
+        return map.containsKey(pos);
     }
 }
