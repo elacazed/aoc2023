@@ -26,13 +26,13 @@ public class D22 extends AoC {
     public record Brick(int id, List<Position3D> positions) {
 
         String name() {
-            return id < 26 ? ""+(char) ('A' +id) : Integer.toString(id);
+            return id < 26 ? "" + (char) ('A' + id) : Integer.toString(id);
         }
 
         private static Brick between(int id, Position3D start, Position3D end, ToIntFunction<Position3D> getter, IntFunction<Position3D> builder) {
             return new Brick(id, IntStream.range(Math.min(getter.applyAsInt(start), getter.applyAsInt(end)), Math.max(getter.applyAsInt(start), getter.applyAsInt(end)) + 1)
-                    .mapToObj(builder::apply)
-                    .collect(Collectors.toList()));
+                    .mapToObj(builder)
+                    .toList());
         }
 
         public int minz() {
@@ -63,11 +63,15 @@ public class D22 extends AoC {
         public static Brick parse(int id, String line) {
             Matcher m = BRICK_PATTERN.matcher(line);
             if (m.matches()) {
-                Position3D start = new Position3D(Integer.parseInt(m.group(1)),Integer.parseInt(m.group(2)),Integer.parseInt(m.group(3)));
-                Position3D end = new Position3D(Integer.parseInt(m.group(4)),Integer.parseInt(m.group(5)),Integer.parseInt(m.group(6)));
+                Position3D start = new Position3D(Integer.parseInt(m.group(1)), Integer.parseInt(m.group(2)), Integer.parseInt(m.group(3)));
+                Position3D end = new Position3D(Integer.parseInt(m.group(4)), Integer.parseInt(m.group(5)), Integer.parseInt(m.group(6)));
                 return Brick.between(id, start, end);
             }
             throw new IllegalArgumentException(line);
+        }
+
+        public String toString() {
+            return name() + " [" + positions + "]";
         }
     }
 
@@ -110,6 +114,10 @@ public class D22 extends AoC {
             for (Brick b : ordered) {
                 stacked.stack(b);
             }
+            //Map<Brick, Set<Brick>> supportingBricks = stacked.bricks.stream()
+            //        .collect(Collectors.toMap(Function.identity(), stacked::supporting));
+            //supportingBricks.entrySet().stream().sorted(Comparator.comparingInt(e -> e.getKey().id()))
+            //        .forEach(e -> System.out.println(e.getKey().name() + " is supported by " + e.getValue().stream().sorted(Comparator.comparingInt(Brick::id)).map(b -> b.name()).collect(Collectors.joining(", "))));
             return stacked;
         }
 
@@ -145,39 +153,70 @@ public class D22 extends AoC {
         }
 
         Collection<Brick> getRemovableBricks() {
-            Map<Brick, Set<Brick>> supportingBricks = bricks.stream()
-                    .collect(Collectors.toMap(Function.identity(), this::supporting));
-            Map<Brick, Set<Brick>> supportedBricks = bricks.stream()
-                            .collect(Collectors.toMap(Function.identity(), this::supportedBy));
-            //supportingBricks.entrySet().stream().sorted(Comparator.comparingInt(e -> e.getKey().id()))
-            //        .forEach(e -> System.out.println(e.getKey().name()+" is supported by "+e.getValue().stream().sorted(Comparator.comparingInt(Brick::id)).map(b -> b.name()).collect(Collectors.joining(", "))));
-
             Set<Brick> removable = new HashSet<>();
+            Map<Brick, Set<Brick>> supportingBricks = new HashMap<>();
             for (Brick b : bricks) {
-                var supported = supportedBricks.get(b);
-                if (supported.isEmpty()) {
-                    removable.add(b);
-                } else if (supported.stream().allMatch(s -> supportingBricks.get(s).size() > 1)) {
+                var supported = supportedBy(b);
+                if (supported.isEmpty() || supported.stream()
+                        .allMatch(s -> supportingBricks.computeIfAbsent(s, this::supporting).size() > 1)) {
                     removable.add(b);
                 }
             }
-            System.out.println(removable.stream().sorted(Comparator.comparingInt(Brick::id)).map(Brick::name).collect(Collectors.joining(", ")));
             return removable;
         }
 
+        long countFallingBricks() {
+            Map<Brick, Set<Brick>> brickToSupportingBricks = bricks.stream()
+                    .collect(Collectors.toMap(Function.identity(), this::supporting));
+            Map<Brick, Set<Brick>> brickToSupportedBricks = bricks.stream()
+                    .collect(Collectors.toMap(Function.identity(), this::supportedBy));
+
+            Map<Brick, Set<Brick>> fallingBricksByDisintegratedBrick = new HashMap<>();
+            for (Brick brick : bricks) {
+                fallingBricksByDisintegratedBrick.put(brick, fallIfDisintegrated(brick, brickToSupportedBricks, brickToSupportingBricks));
+            }
+            return fallingBricksByDisintegratedBrick.values().stream().mapToLong(Set::size).sum();
+        }
+
+        public Set<Brick> fallIfDisintegrated(Brick brick, Map<Brick, Set<Brick>> brickToSupportedBricks, Map<Brick, Set<Brick>> brickToSupportingBricks) {
+            HashSet<Brick> result = new HashSet<>();
+            fallIfDisintegrated(brick, brickToSupportedBricks, brickToSupportingBricks, result);
+            return result;
+        }
+
+        private void fallIfDisintegrated(Brick b, Map<Brick, Set<Brick>> brickTosupportedBricks, Map<Brick, Set<Brick>> brickToSupportingBricks, Set<Brick> toFall) {
+            Set<Brick> supportedBy = brickTosupportedBricks.get(b);
+            if (supportedBy.isEmpty()) {
+                return;
+            }
+
+            var supportedOnlyBy = supportedBy.stream().filter(supported -> {
+                var s = new HashSet<>(brickToSupportingBricks.get(supported));
+                s.removeAll(toFall);
+                s.remove(b);
+                return s.isEmpty();
+            }).collect(Collectors.toSet());
+            toFall.addAll(supportedOnlyBy);
+            for (Brick brick : supportedOnlyBy) {
+                fallIfDisintegrated(brick, brickTosupportedBricks, brickToSupportingBricks, toFall);
+            }
+        }
     }
+
 
     @Override
     public void run() {
         Space testSpace = new Space(list(getTestInputPath()));
         Space testStacked = testSpace.stack();
         Collection<Brick> testRemovables = testStacked.getRemovableBricks();
-        System.out.println("Test Space removables bricks (5) : "+testRemovables.size());
+        System.out.println("Test Space removables bricks (5) : " + testRemovables.size());
+        System.out.println("Test Space falling bricks (7) : " + testStacked.countFallingBricks());
 
         Space space = new Space(list(getInputPath()));
         Space stacked = space.stack();
         Collection<Brick> removables = stacked.getRemovableBricks();
         System.out.println("Space removables bricks (398) : "+removables.size());
+        System.out.println("Space falling bricks (70727) : " + stacked.countFallingBricks());
     }
 }
 
