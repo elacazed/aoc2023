@@ -47,6 +47,10 @@ public class Grid<N> {
         return height;
     }
 
+    public int size() {
+        return map.size();
+    }
+
     public N get(int x, int y) {
         return get(new Position(x, y));
     }

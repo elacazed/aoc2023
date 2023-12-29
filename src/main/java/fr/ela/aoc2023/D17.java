@@ -1,6 +1,6 @@
 package fr.ela.aoc2023;
 
-import fr.ela.aoc2023.utils.Dijkstra;
+import fr.ela.aoc2023.utils.Walker;
 import fr.ela.aoc2023.utils.Direction;
 import fr.ela.aoc2023.utils.Grid;
 import fr.ela.aoc2023.utils.Path;
@@ -56,11 +56,11 @@ public class D17 extends AoC {
             Function<Block, List<Block>> nextNodes = ultra ? Block::ultraNext : Block::next;
             nextNodes = nextNodes.andThen(l -> l.stream().filter(b -> heatLossGrid.inBounds(b.position)).toList());
 
-            Dijkstra<Block, Long> dijkstra = Dijkstra.longDijkstra(nextNodes, n -> heatLossGrid.get(n.position()));
+            Walker<Block, Long> walker = Walker.longWalker(nextNodes, n -> heatLossGrid.get(n.position()));
             List<Block> starts = List.of(
                     new Block(1, 0, Direction.EAST, 0),
                     new Block(0, 1, Direction.SOUTH, 0));
-            return dijkstra.findShortestPath(starts, this::isExit);
+            return walker.findShortestPath(starts, this::isExit);
         }
 
         public String draw(List<Block> path) {
