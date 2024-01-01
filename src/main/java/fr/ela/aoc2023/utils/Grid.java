@@ -4,8 +4,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
 
 public class Grid<N> {
 
@@ -37,6 +39,10 @@ public class Grid<N> {
 
     public List<Position> getPositionsOf(N value) {
         return map.entrySet().stream().filter(e -> e.getValue().equals(value)).map(Map.Entry::getKey).toList();
+    }
+
+    public Stream<Position> stream() {
+        return map.keySet().stream();
     }
 
     public int getWidth() {
@@ -76,6 +82,10 @@ public class Grid<N> {
 
     public List<Position> cardinalsIf(Position position, Predicate<Position> pred) {
         return position.cardinals().stream().filter(this::inBounds).filter(pred).toList();
+    }
+
+    public List<Position> to(Position from, Set<Position> path) {
+        return from.cardinals().stream().filter(this::contains).filter(p -> !path.contains(p)).toList();
     }
 
     public List<char[]> draw(Function<N, Character> mapper) {
